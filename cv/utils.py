@@ -43,10 +43,10 @@ def print_cam_base_info(cap: cv2.VideoCapture):
     autoWB                  = cap.get(cv2.CAP_PROP_AUTO_WB)                             # 自动白平衡 default=1 value=0
     sharpness               = cap.get(cv2.CAP_PROP_SHARPNESS)                           # 锐度 min=0 max=100 step=1 default=50 value=50
     gamma                   = cap.get(cv2.CAP_PROP_GAMMA)                               # 伽马值 min=100 max=500 step=1 default=300 value=300
-    # powerFramrate           = cap.get(cv2.CAP_PROP_XI_PRM_ACQ_FRAMERATE)                # 电源线频率# 0 = 50 Hz, 1 = 60 Hz, 2 = 禁用 min=0 max=2 default=1 value=1
+    # powerFramrate           = cap.get(cv2.CAP_PROP_XI_PRM_ACQ_FRAMERATE)                       # 电源线频率# 0 = 50 Hz, 1 = 60 Hz, 2 = 禁用 min=0 max=2 default=1 value=1
     backLight               = cap.get(cv2.CAP_PROP_BACKLIGHT)                           # 背光补偿 min=0 max=2 step=1 default=0 value=0
     autoExposure            = cap.get(cv2.CAP_PROP_AUTO_EXPOSURE)                       # 自动曝光 min=0 max=3 default=3 value=3
-    # exposureAutoPriority    = cap.get(cv2.CAP_PROP_EXPOSURE_AUTO_PRIORITY)              # 自动曝光优先级（0 = 关闭, 1 = 开启）
+    # exposureAutoPriority    = cap.get(cv2.CAP_PROP_EXPOSURE_AUTO_PRIORITY)                     # 自动曝光优先级（0 = 关闭, 1 = 开启）
     focus                   = cap.get(cv2.CAP_PROP_FOCUS)                               # 绝对焦点值（min=0 max=1023 step=1 default=68 value=68 flags=inactive
     autoFocus               = cap.get(cv2.CAP_PROP_AUTOFOCUS)                           # 自动对焦 default=1 value=1
 
@@ -238,6 +238,7 @@ class FPS:
         thickness = 2
 
         cv2.putText(img, text, org, font, fontScale, color, thickness, cv2.LINE_AA)
+
 
 def get_camera_id(camera_name):
     cam_num = None

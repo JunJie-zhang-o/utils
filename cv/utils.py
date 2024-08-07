@@ -11,10 +11,14 @@ import cv2
 
 
 def print_cv_build_info():
+    """打印Opencv的构建信息
+    """
     print(cv2.getBuildInformation())  
 
 
 def isSupportGStreamer():
+    """查询opencv是否支持GStreamer
+    """
     info = cv2.getBuildInformation().split("\n")
     for i in info:
         if i.find("GStreamer") >= 0:
@@ -24,8 +28,14 @@ def isSupportGStreamer():
 
 
 def print_cam_base_info(cap: cv2.VideoCapture):
-    # 解析四字符码
+    """
+    打印相机的基本参数
+
+    Args:
+        cap (cv2.VideoCapture): cv2.VideoCapture instance
+    """
     def fourcc_to_string(fourcc):
+        # 解析四字符码
         return "".join([chr((int(fourcc) >> 8 * i) & 0xFF) for i in range(4)])
 
     width                   = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
@@ -101,6 +111,7 @@ def set_cam_base_params(
     focus:int=None,
     autoFocus:int=None,
 ):
+
     if width is not None:
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
     if height is not None:
@@ -204,40 +215,6 @@ class VideoWriter:
         pass
 
 
-
-class FPS:
-
-    def __init__(self) -> None:
-        self.startT = time.time()        
-        self.frameCount = 0
-        self._fps = 0
-
-    
-    @property
-    def fps(self):
-        return self._fps
-
-
-    def refresh(self):
-        self.frameCount += 1
-        now = time.time()
-        if now - self.startT > 1:
-            self._fps = int(self.frameCount / (now - self.startT))
-            self.frameCount = 0
-            self.startT = now
-
-
-    @classmethod
-    def putFPSToImage(cls, img, fps):
-        # 添加文字到图像左上角
-        text = f"FPS:{int(fps)}"
-        org = (10, 30)  # 文字起始位置
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        fontScale = 1
-        color = (0, 0, 255)  
-        thickness = 2
-
-        cv2.putText(img, text, org, font, fontScale, color, thickness, cv2.LINE_AA)
 
 
 def get_camera_id(camera_name):

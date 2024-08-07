@@ -1,18 +1,29 @@
+from re import X
 import sys
-import time
 from threading import Event, Thread
-
-import numpy as np
-import pyqtgraph as pg
-import zmq
+import time
+from typing import Callable
 from PyQt5.QtWidgets import QApplication, QMainWindow
+
+import pyqtgraph as pg
+import numpy as np
+import zmq
 
 # 禁用科学记数法
 np.set_printoptions(suppress=True)
 
 class Suber(Thread):
+    """
+        基于zmq PUB的SUB线程实现
+    """
+    def __init__(self, address: str, topic: str=""):
+        """
+            订阅zmq 的 PUB 发送的数据
 
-    def __init__(self, address, topic=""):
+        Args:
+            address (str): 订阅地址. 例如:  tcp://192.168.40.241:5556
+            topic (str, optional): 如果PUB指定那么SUB也需要指定. Defaults to "".
+        """
         super().__init__(name=f"Suber Thread | address:{address}, topic:{topic}", daemon=True)
         self.address = address
         self.topic = topic
@@ -21,7 +32,7 @@ class Suber(Thread):
         self.socket.connect(self.address)
         self.socket.setsockopt_string(zmq.SUBSCRIBE, self.topic)
         self._stop_event = Event()
-        self.message = None
+        self.message = "0,0,0"
         self.internal = 0
         self.timestamp = 0
 
@@ -43,23 +54,34 @@ class Suber(Thread):
 
 
     def stop(self):
+        """
+            停止SUB的后台线程
+        """
         self._stop_event.set()
         self.socket.close()
         self.context.term()
         print("Subscriber stopped")
 
-suber = Suber("tcp://192.168.1.2:5556")
-# suber = Suber("tcp://127.0.0.1:5556")
-suber.start()
-
-
-
 
 
 class PlotSubWindow:
-    def __init__(self, title, callback, row, col, yRange, win):
+    """
+        实时绘制子窗口类
+    """
+    def __init__(self, title: str, callback: Callable, row: int, col: int, yRange: tuple, win:pg.GraphicsLayoutWidget):
+        """
+        _summary_
+
+        Args:
+            title (str): 窗口title
+            callback (Callable): 获取数据回调函数,该回调函数在每个时间周期内调用,并且该回调应该返回该子窗口上x和y对应的数据
+            row (int): 在主窗口上的行位置
+            col (int): 在主窗口上的列位置
+            yRange (tuple, optional): 初始Y轴的区间. Defaults to None.
+            win (pg.GraphicsLayoutWidget): 子窗口要添加到的主窗口
+        """
         self.plot = win.addPlot(row, col, title=title)
-        self.plot.setTitle(title)
+        self.plot.setTitle(title, size="20pt")
         self.x_data = []
         self.y_data = []
         self.curve = self.plot.plot()
@@ -77,7 +99,9 @@ class PlotSubWindow:
         self.callback = callback
 
     def update(self):
-
+        """
+            数据更新
+        """
         x, y = self.callback()
 
         if x is None or y is None:
@@ -105,8 +129,15 @@ class PlotSubWindow:
 
 
 class RealTimePlot(QMainWindow):
-    
-    def __init__(self,title, msec):
+    """
+        实时接收数据plot
+    """
+    def __init__(self,title:str, msec:int):
+        """
+        Args:
+            title (str): 窗口的名册很难过
+            msec (int): 数据刷新频率,单位:ms
+        """
         super().__init__()
         self.win = pg.GraphicsLayoutWidget(show=True)
         self.setWindowTitle(title)
@@ -119,24 +150,65 @@ class RealTimePlot(QMainWindow):
         self.timer.start(msec)  # 每100毫秒更新一次
 
 
-    def addSubWindow(self, title, callback, row, col,  yRange=None):
+    def addSubWindow(self, title: str, callback:Callable, row: int, col: int,  yRange: tuple=None) -> PlotSubWindow:
+        """
+            添加一个子窗口
+
+        Args:
+            title (str): 窗口title
+            callback (Callable): 获取数据回调函数,该回调函数在每个时间周期内调用,并且该回调应该返回该子窗口上x和y对应的数据
+            row (int): 在主窗口上的行位置
+            col (int): 在主窗口上的列位置
+            yRange (tuple, optional): 初始Y轴的区间. Defaults to None.
+
+        Returns:
+            PlotSubWindow: 创建的子窗口
+        """
         subWindow = self.createSubWindow(title, callback, row, col, yRange)
         self._plots.update({title: subWindow})
         self.timer.timeout.connect(subWindow.update)
         return subWindow
         
 
-    def delSubWindow(self, title):
+    def delSubWindow(self, title: str) -> None:
+        """
+            删除子窗口
+
+        Args:
+            title (str): 要删除的子窗口名称
+        """
         if title in self._plots.keys():
             self._plots.pop(title)
     
 
-    def createSubWindow(self, title, callback, row, col, yRange=None):
-       subWindow = PlotSubWindow(title, callback,  row, col, yRange, self.win)
-       return subWindow
+    def createSubWindow(self, title: str, callback: Callable, row: int, col: int, yRange: tuple=None) -> PlotSubWindow:
+        """
+        创建一个子窗口
+
+        Args:
+            title (str): 窗口name
+            callback (Callable): 回调
+            row (int): 行号
+            col (int): 列号
+            yRange (tuple, optional): 设置y轴的初始区间. Defaults to None.
+
+        Returns:
+            PlotSubWindow: 子窗口
+        """
+        subWindow = PlotSubWindow(title, callback,  row, col, yRange, self.win)
+        return subWindow
 
 
-    def getSubWindow(self, title):
+    def getSubWindow(self, title: str):
+        """
+        _summary_
+
+        Args:
+            title (str): _description_
+
+        Returns:
+            _type_: _description_
+        """
         return self._plots.get(title, None)
 
     
@@ -144,17 +216,17 @@ class RealTimePlot(QMainWindow):
 
 
 if __name__ == '__main__':
+    # suber = Suber("tcp://192.168.1.2:5556")
+    suber = Suber("tcp://192.168.40.241:5556")
+    # suber = Suber("tcp://127.0.0.1:5556")
+    suber.start()
     app = QApplication(sys.argv)
-    # ex = RealTimePlot((-15, 15), callback=lambda: (float(suber.timestamp), float(suber.message.split(",")[0])))
-    # ex.show()
-    # exit = app.exec_()
-    # # values = np.column_stack(ex.x_data, ex.y_data)
-    # # np.savetxt("values.txt",values)
-    # sys.exit(exit)
+
 
     rtPlot = RealTimePlot("数据", 100)
-    rtPlot.addSubWindow("t1", lambda: (float(suber.timestamp), float(suber.message.split(",")[0])), 1,1)
-    rtPlot.addSubWindow("t2", lambda: (float(suber.timestamp), float(suber.message.split(",")[1])), 2,1)
+    rtPlot.addSubWindow("X", lambda: (float(suber.timestamp), float(suber.message.split(",")[0])), 1,1)
+    rtPlot.addSubWindow("Y", lambda: (float(suber.timestamp), float(suber.message.split(",")[1])), 2,1)
+    rtPlot.addSubWindow("Z", lambda: (float(suber.timestamp), float(suber.message.split(",")[2])), 3,1)
     # rtPlot.addSubWindow("t3", lambda:(round(time.time(), 6),3), 2,1)
     # rtPlot.addSubWindow("t4", lambda:(round(time.time(), 6),4), 2,2)
     rtPlot.show()

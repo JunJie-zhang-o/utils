@@ -1,11 +1,19 @@
+#!/usr/bin/python
+# coding=utf-8
+'''
+Author       : jay.jetson jay.zhangjunjie@outlook.com
+Date         : 2024-09-04 03:40:34
+LastEditTime : 2024-09-20 11:21:20
+LastEditors  : Jay jay.zhangjunjie@outlook.com
+Description  : 
+'''
 import sys
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from enum import IntEnum
-from threading import Event, Thread
-from turtle import color
+from threading import Event
 from typing import Callable
 import warnings
 
@@ -13,7 +21,6 @@ import numpy as np
 import pyqtgraph as pg
 import zmq
 from PyQt5.QtCore import QThread, pyqtSignal
-from PyQt5.QtGui import QPen
 from PyQt5.QtWidgets import QApplication, QMainWindow
 from pyqtgraph.Qt import QtGui
 
@@ -246,6 +253,7 @@ class FixedWindow(PlotSubWindow):
 
 class RollWindow(PlotSubWindow):
     
+    DEFAULT_ROLL_DATA_NUM = 1000
 
     def __init__(self, title, callback, row, col, xRange, yRange, win, rollWindowSize = 10):
         self._moveWindowIndex = None
@@ -267,13 +275,18 @@ class RollWindow(PlotSubWindow):
                 self.plot.enableAutoRange(axis="x")
             else:
                 index = self._moveWindowIndex = self._moveWindowIndex + 1
-                
+            # print(len(self.x_data), index)
+            
+            if index >= self.DEFAULT_ROLL_DATA_NUM:
+                self.x_data = self.x_data[index:]
+                self.y_data = self.y_data[index:]
+                index = self._moveWindowIndex = 0 
+
             x_data = self.x_data[index:]
             y_data = self.y_data[index:]
         else:
             x_data = self.x_data
             y_data = self.y_data
-            
         
         # 更新曲线的数据
         self.curve.setData(x_data, y_data)
@@ -320,7 +333,7 @@ class PlotWindowType(IntEnum):
 
 class RealTimePlot(QMainWindow):
     
-    def __init__(self,title, msec, suber: Suber):
+    def __init__(self, title, msec, suber: Suber):
         super().__init__()
         self.win = pg.GraphicsLayoutWidget(show=True)
         self.setWindowTitle(title)
@@ -328,7 +341,7 @@ class RealTimePlot(QMainWindow):
         self._plots = {}
         self._suber = suber
 
-        # 在窗口显示时最大化
+        # 在窗口显示时最大化 
         self.showMaximized()
         # 设置一个计时器来调用更新函数
         self._timerInterval = msec
@@ -379,41 +392,35 @@ class RealTimePlot(QMainWindow):
             plot.save_data(filename)
 
     
-# TODO:增加数据保存
+
 
 
 if __name__ == '__main__':
-    # suber = Suber("tcp://192.168.1.7:5557")
-    # suber = Suber("tcp://192.168.1.2:5556")
-    # suber = Suber("tcp://192.168.40.241:5556")
-    suber = Suber("tcp://127.0.0.1:5555")
-    # suber.start()
 
+    suber = Suber("tcp://127.0.0.1:5556")
     app = QApplication(sys.argv)
-
-
 
     rtPlot = RealTimePlot("Data", 10, suber)
     rtPlot.setUpdateTrigger(suber)
     
 
     def xFunc(rtMsg:RTMessage):
-        return rtMsg.totalTime, float(rtMsg.message.split(",")[1])
+        return rtMsg.totalTime, float(rtMsg.message.split(",")[0])
 
     def yFunc(rtMsg: RTMessage):
-        return rtMsg.totalTime, float(rtMsg.message.split(",")[2])
+        return rtMsg.totalTime, float(rtMsg.message.split(",")[1])
 
     def zFunc(rtMsg: RTMessage):
-        return rtMsg.totalTime, float(rtMsg.message.split(",")[3])
+        z = float(rtMsg.message.split(",")[2])
+        if abs(z) <= 0.4:
+            z = 0
+        return rtMsg.totalTime, z
 
-    rtPlot.addSubWindow(title="X1", callback=xFunc, row=1,col=1, yRange=(-4,4), windowType=PlotWindowType.COMPRESS_WINDOW)
-    rtPlot.addSubWindow(title="Y1", callback=yFunc, row=2,col=1, windowType=PlotWindowType.COMPRESS_WINDOW)
-    rtPlot.addSubWindow(title="Z1", callback=zFunc, row=3,col=1, windowType=PlotWindowType.COMPRESS_WINDOW)
-    rtPlot.addSubWindow(title="X2", callback=xFunc, row=1,col=2, yRange=(-4,4), windowType=PlotWindowType.ROLL_WINDOW)
-    rtPlot.addSubWindow(title="Y2", callback=yFunc, row=2,col=2, windowType=PlotWindowType.ROLL_WINDOW)
-    rtPlot.addSubWindow(title="Z2", callback=zFunc, row=3,col=2, windowType=PlotWindowType.ROLL_WINDOW)
-    # rtPlot.addSubWindow("t3", lambda:(round(time.time(), 6),3), 2,1)
-    # rtPlot.addSubWindow("t4", lambda:(round(time.time(), 6),4), 2,2)
+
+    rtPlot.addSubWindow(title="X2", callback=xFunc, row=1,col=1, yRange=(-10,10), windowType=PlotWindowType.ROLL_WINDOW)
+    rtPlot.addSubWindow(title="Y2", callback=yFunc, row=2,col=1, yRange=(-10,10), windowType=PlotWindowType.ROLL_WINDOW)
+    rtPlot.addSubWindow(title="Z2", callback=zFunc, row=3,col=1, yRange=(-2,5), windowType=PlotWindowType.ROLL_WINDOW)
+
 
     # 退出时自动保存数据
     def on_exit():
